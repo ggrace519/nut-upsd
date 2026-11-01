@@ -1,2 +1,4 @@
+# upsmon role, so LOGIN checks the password (upsd checks none for read-only users).
 [smoke]
   password = smoke-test-only
+  upsmon secondary
