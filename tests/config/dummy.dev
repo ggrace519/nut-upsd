@@ -1,0 +1,5 @@
+device.mfr: Dummy
+device.model: Smoke
+ups.status: OL
+battery.charge: 87
+battery.runtime: 3600

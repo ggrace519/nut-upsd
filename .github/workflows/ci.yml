@@ -1,0 +1,50 @@
+# Build the image and run the dummy-ups smoke test on every push and pull request.
+name: CI
+
+on:
+  push:
+    branches: [develop, main]
+  pull_request:
+  # Weekly: is the published image behind Alpine's security fixes?
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Lint
+        run: |
+          shellcheck entrypoint.sh healthcheck.sh tests/smoke.sh
+          docker run --rm -i hadolint/hadolint@sha256:32dac94127fd60b7b7e3fbfc65e1383b9b5e25c9bfd7b8536de7a539fe68a12d < Dockerfile
+
+      - name: Build
+        run: docker build --pull -t nut-upsd:ci .
+
+      - name: Smoke test (dummy-ups)
+        run: tests/smoke.sh nut-upsd:ci
+
+  # Dependabot only moves the Alpine base digest, which changes on Alpine point releases. A
+  # nut/libusb security fix inside the 3.23 branch in between needs a patch release: this job
+  # fails (and GitHub notifies) when the published image has outdated packages.
+  outdated:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check the published image for outdated packages
+        run: |
+          outdated=$(docker run --rm --entrypoint sh ghcr.io/ggrace519/nut-upsd:latest \
+            -c 'apk update -q >/dev/null && apk version -l "<" | tail -n +2')
+          if [ -n "$outdated" ]; then
+            echo "::error::ghcr.io/ggrace519/nut-upsd:latest has outdated packages; tag a patch release"
+            echo "$outdated"
+            exit 1
+          fi
+          echo "latest is up to date with Alpine 3.23"

@@ -1,0 +1,17 @@
+version: 2
+updates:
+  # The Alpine base image (digest-pinned in the Dockerfile). Alpine point releases carry the
+  # apk security fixes, so this is how NUT and its libraries get updated.
+  - package-ecosystem: docker
+    directory: /
+    target-branch: develop
+    schedule:
+      interval: weekly
+  - package-ecosystem: github-actions
+    directory: /
+    target-branch: develop
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
