@@ -1,0 +1,3 @@
+device.mfr: Dummy
+ups.status: OB DISCHRG
+battery.charge: 42
