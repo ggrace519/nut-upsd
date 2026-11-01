@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-11-01
+NUT 2.8.3, Alpine 3.23.
+
 ### Added
 - The image: NUT 2.8.3 (UPS drivers + `upsd`) on Alpine 3.23, digest-pinned. It's the first
   NUT with EcoFlow River 3 Plus / Delta 3 Plus USB support.
