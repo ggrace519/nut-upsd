@@ -2,7 +2,7 @@
 # End-to-end smoke test with NUT's dummy-ups driver (no hardware needed).
 #   tests/smoke.sh <image>
 # Checks: healthy with two UPSes, values served over the NUT protocol, the config copy is
-# root:nut 0640, a login works, a dead driver stops the container (exit 1), and a missing
+# root:nut 0640, a login checks the password, a dead driver stops the container (exit 1), and a missing
 # config refuses to start (exit 64).
 set -euo pipefail
 
@@ -44,11 +44,15 @@ perms=$(in_ctr stat -c '%U:%G %a' /etc/nut/upsd.users)
 [ "$perms" = "root:nut 640" ] || fail "upsd.users is $perms"
 echo "$perms"
 
-echo "== login (upsd can read upsd.users as nut)"
-reply=$(in_ctr sh -c 'printf "USERNAME smoke\nPASSWORD smoke-test-only\nLOGOUT\n" | nc -w3 127.0.0.1 3493')
-[ "$(echo "$reply" | grep -c '^OK')" -ge 3 ] || fail "login replies: $reply"
+echo "== login (upsd reads upsd.users as nut and checks the password)"
+# upsd answers OK to USERNAME/PASSWORD whatever they are; LOGIN (upsmon users) checks them.
+login() { in_ctr sh -c "printf 'USERNAME smoke\nPASSWORD %s\nLOGIN dummy\nLOGOUT\n' '$1' | nc -w3 127.0.0.1 3493" | sed -n 3p; }
+good=$(login smoke-test-only)
+[ "${good%$'\r'}" = "OK" ] || fail "LOGIN with the right password: $good"
+bad=$(login wrong-password)
+[ "${bad%$'\r'}" = "ERR ACCESS-DENIED" ] || fail "LOGIN with a wrong password: $bad"
 docker logs "$NAME" 2>&1 | grep -q "Permission denied" && fail "upsd logged a permission error"
-echo "login ok"
+echo "login ok, wrong password refused"
 
 echo "== a dead driver stops the container"
 # shellcheck disable=SC2016 # expands inside the container, not here

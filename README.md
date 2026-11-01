@@ -78,7 +78,7 @@ tests/smoke.sh nut-upsd:test
 The smoke test needs no hardware. It uses NUT's `dummy-ups` driver to check:
 - start-up with two UPSes and the healthcheck;
 - values served over the NUT protocol;
-- the config copy's permissions and a login;
+- the config copy's permissions, and that `LOGIN` takes the right password and refuses a wrong one;
 - that a dead driver stops the container;
 - a clean `docker stop`;
 - refusal to start without config.
