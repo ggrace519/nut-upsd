@@ -1,0 +1,87 @@
+#!/usr/bin/env bash
+# End-to-end smoke test with NUT's dummy-ups driver (no hardware needed).
+#   tests/smoke.sh <image>
+# Checks: healthy with two UPSes, values served over the NUT protocol, the config copy is
+# root:nut 0640, a login works, a dead driver stops the container (exit 1), and a missing
+# config refuses to start (exit 64).
+set -euo pipefail
+
+IMAGE="${1:?usage: tests/smoke.sh <image>}"
+HERE="$(cd "$(dirname "$0")" && pwd)"
+NAME="nut-smoke-$$"
+fail() { echo "FAIL: $*" >&2; docker logs "$NAME" 2>&1 | tail -20 >&2 || true; exit 1; }
+cleanup() { docker rm -f "$NAME" >/dev/null 2>&1 || true; }
+trap cleanup EXIT
+
+# Host-side copy is root-only, like a real deployment.
+CFG="$(mktemp -d)"
+cp "$HERE"/config/* "$CFG"/
+chmod 0600 "$CFG"/upsd.users
+chmod 0755 "$CFG"
+
+in_ctr() { docker exec "$NAME" "$@"; }
+
+echo "== start"
+docker run -d --name "$NAME" -v "$CFG":/config:ro "$IMAGE" >/dev/null
+for _ in $(seq 1 45); do
+  state=$(docker inspect -f '{{.State.Health.Status}}' "$NAME" 2>/dev/null || echo gone)
+  [ "$state" = healthy ] && break
+  [ "$state" = gone ] && fail "container exited during start"
+  sleep 2
+done
+[ "$state" = healthy ] || fail "not healthy after 90 s (state: $state)"
+echo "healthy"
+
+echo "== values"
+v=$(in_ctr upsc dummy@127.0.0.1 battery.charge 2>/dev/null); [ "$v" = 87 ] || fail "dummy battery.charge=$v"
+v=$(in_ctr upsc dummy@127.0.0.1 ups.status 2>/dev/null); [ "$v" = OL ] || fail "dummy ups.status=$v"
+v=$(in_ctr upsc dummy2@127.0.0.1 ups.status 2>/dev/null); [ "$v" = "OB DISCHRG" ] || fail "dummy2 ups.status=$v"
+in_ctr upsd -V 2>&1 | grep -Eq 'upsd 2\.8\.([3-9]|[1-9][0-9])' || fail "NUT older than 2.8.3"
+echo "values ok, $(in_ctr upsd -V 2>&1 | head -1)"
+
+echo "== config copy permissions"
+perms=$(in_ctr stat -c '%U:%G %a' /etc/nut/upsd.users)
+[ "$perms" = "root:nut 640" ] || fail "upsd.users is $perms"
+echo "$perms"
+
+echo "== login (upsd can read upsd.users as nut)"
+reply=$(in_ctr sh -c 'printf "USERNAME smoke\nPASSWORD smoke-test-only\nLOGOUT\n" | nc -w3 127.0.0.1 3493')
+[ "$(echo "$reply" | grep -c '^OK')" -ge 3 ] || fail "login replies: $reply"
+docker logs "$NAME" 2>&1 | grep -q "Permission denied" && fail "upsd logged a permission error"
+echo "login ok"
+
+echo "== a dead driver stops the container"
+# shellcheck disable=SC2016 # expands inside the container, not here
+in_ctr sh -c 'kill "$(pgrep -f "^/usr/lib/nut/dummy-ups .*-a dummy2")"'
+for _ in $(seq 1 15); do
+  [ "$(docker inspect -f '{{.State.Running}}' "$NAME")" = false ] && break
+  sleep 1
+done
+[ "$(docker inspect -f '{{.State.Running}}' "$NAME")" = false ] || fail "still running after a driver died"
+code=$(docker inspect -f '{{.State.ExitCode}}' "$NAME")
+[ "$code" = 1 ] || fail "exit code $code after driver death, want 1"
+echo "exited 1"
+cleanup
+
+echo "== docker stop is clean and quick (signals reach the daemons)"
+docker run -d --name "$NAME" -v "$CFG":/config:ro "$IMAGE" >/dev/null
+sleep 5
+start=$(date +%s)
+docker stop -t 10 "$NAME" >/dev/null
+took=$(( $(date +%s) - start ))
+code=$(docker inspect -f '{{.State.ExitCode}}' "$NAME")
+[ "$code" = 0 ] || fail "exit code $code after docker stop, want 0"
+[ "$took" -lt 8 ] || fail "docker stop took ${took}s (SIGTERM not handled?)"
+echo "stopped in ${took}s, exit 0"
+cleanup
+
+echo "== missing config refuses to start"
+set +e
+docker run --name "$NAME" "$IMAGE" >/dev/null 2>&1
+code=$?
+set -e
+[ "$code" = 64 ] || fail "exit code $code without config, want 64"
+echo "exited 64"
+
+rm -rf "$CFG"
+echo "PASS"
