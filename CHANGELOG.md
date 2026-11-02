@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-11-01
+NUT 2.8.3, Alpine 3.23.
+
 ### Added
 - `NUT_DEVICE_GID`: the numeric ID of the host group that owns the UPS's USB device node. The
   drivers run as `nut`, and a default host node (`root:root 0664`) can't be opened read-write,
