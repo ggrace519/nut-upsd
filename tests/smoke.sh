@@ -2,7 +2,7 @@
 # End-to-end smoke test with NUT's dummy-ups driver (no hardware needed).
 #   tests/smoke.sh <image>
 # Checks: healthy with two UPSes, values served over the NUT protocol, the config copy is
-# root:nut 0640, a login works, a dead driver stops the container (exit 1), and a missing
+# root:nut 0640, a login checks the password, a dead driver stops the container (exit 1), and a missing
 # config refuses to start (exit 64).
 set -euo pipefail
 
@@ -21,15 +21,24 @@ chmod 0755 "$CFG"
 
 in_ctr() { docker exec "$NAME" "$@"; }
 
+wait_healthy() {
+  local state
+  for _ in $(seq 1 45); do
+    state=$(docker inspect -f '{{.State.Health.Status}}' "$NAME" 2>/dev/null || echo gone)
+    [ "$state" = healthy ] && return 0
+    [ "$state" = gone ] && fail "container exited during start"
+    sleep 2
+  done
+  fail "not healthy after 90 s (state: $state)"
+}
+
+# Supplementary groups of the running dummy2 driver, as the kernel sees them.
+# shellcheck disable=SC2016 # expands inside the container, not here
+driver_groups() { in_ctr sh -c 'grep "^Groups:" "/proc/$(pgrep -f "^/usr/lib/nut/dummy-ups .*-a dummy2")/status"'; }
+
 echo "== start"
 docker run -d --name "$NAME" -v "$CFG":/config:ro "$IMAGE" >/dev/null
-for _ in $(seq 1 45); do
-  state=$(docker inspect -f '{{.State.Health.Status}}' "$NAME" 2>/dev/null || echo gone)
-  [ "$state" = healthy ] && break
-  [ "$state" = gone ] && fail "container exited during start"
-  sleep 2
-done
-[ "$state" = healthy ] || fail "not healthy after 90 s (state: $state)"
+wait_healthy
 echo "healthy"
 
 echo "== values"
@@ -44,11 +53,15 @@ perms=$(in_ctr stat -c '%U:%G %a' /etc/nut/upsd.users)
 [ "$perms" = "root:nut 640" ] || fail "upsd.users is $perms"
 echo "$perms"
 
-echo "== login (upsd can read upsd.users as nut)"
-reply=$(in_ctr sh -c 'printf "USERNAME smoke\nPASSWORD smoke-test-only\nLOGOUT\n" | nc -w3 127.0.0.1 3493')
-[ "$(echo "$reply" | grep -c '^OK')" -ge 3 ] || fail "login replies: $reply"
+echo "== login (upsd reads upsd.users as nut and checks the password)"
+# upsd answers OK to USERNAME/PASSWORD whatever they are; LOGIN (upsmon users) checks them.
+login() { in_ctr sh -c "printf 'USERNAME smoke\nPASSWORD %s\nLOGIN dummy\nLOGOUT\n' '$1' | nc -w3 127.0.0.1 3493" | sed -n 3p; }
+good=$(login smoke-test-only)
+[ "${good%$'\r'}" = "OK" ] || fail "LOGIN with the right password: $good"
+bad=$(login wrong-password)
+[ "${bad%$'\r'}" = "ERR ACCESS-DENIED" ] || fail "LOGIN with a wrong password: $bad"
 docker logs "$NAME" 2>&1 | grep -q "Permission denied" && fail "upsd logged a permission error"
-echo "login ok"
+echo "login ok, wrong password refused"
 
 echo "== a dead driver stops the container"
 # shellcheck disable=SC2016 # expands inside the container, not here
@@ -73,6 +86,33 @@ code=$(docker inspect -f '{{.State.ExitCode}}' "$NAME")
 [ "$code" = 0 ] || fail "exit code $code after docker stop, want 0"
 [ "$took" -lt 8 ] || fail "docker stop took ${took}s (SIGTERM not handled?)"
 echo "stopped in ${took}s, exit 0"
+cleanup
+
+echo "== NUT_DEVICE_GID puts the drivers in the device group, also after a restart"
+docker run -d --name "$NAME" -e NUT_DEVICE_GID=4242 -v "$CFG":/config:ro "$IMAGE" >/dev/null
+wait_healthy
+driver_groups | grep -qw 4242 || fail "driver lacks group 4242: $(driver_groups)"
+docker restart -t 10 "$NAME" >/dev/null
+wait_healthy
+driver_groups | grep -qw 4242 || fail "driver lacks group 4242 after a restart: $(driver_groups)"
+echo "driver has 4242, before and after a restart"
+cleanup
+
+echo "== an ID the image already has is reused, not duplicated"
+docker run -d --name "$NAME" -e NUT_DEVICE_GID=20 -v "$CFG":/config:ro "$IMAGE" >/dev/null
+wait_healthy
+driver_groups | grep -qw 20 || fail "driver lacks group 20: $(driver_groups)"
+in_ctr grep -q '^nut-device:' /etc/group && fail "created nut-device for an existing ID"
+echo "driver has 20 (existing group reused)"
+cleanup
+
+echo "== a non-numeric NUT_DEVICE_GID refuses to start"
+set +e
+docker run --name "$NAME" -e NUT_DEVICE_GID=plugdev -v "$CFG":/config:ro "$IMAGE" >/dev/null 2>&1
+code=$?
+set -e
+[ "$code" = 64 ] || fail "exit code $code for NUT_DEVICE_GID=plugdev, want 64"
+echo "exited 64"
 cleanup
 
 echo "== missing config refuses to start"
