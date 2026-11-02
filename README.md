@@ -24,7 +24,7 @@ docker run -d --name nut-upsd \
   -v /dev/bus/usb:/dev/bus/usb \
   --device-cgroup-rule 'c 189:* rmw' \
   -e NUT_DEVICE_GID="$(getent group nut-ups | cut -d: -f3)" \
-  ghcr.io/ggrace519/nut-upsd:1.1.0
+  ghcr.io/ggrace519/nut-upsd:1.1.1
 ```
 
 - **`/config`** must contain `ups.conf`, `upsd.conf` and `upsd.users`. `nut.conf` and anything
