@@ -3,7 +3,7 @@
 [Network UPS Tools](https://networkupstools.org/) (the UPS drivers plus `upsd`) in a small
 Alpine image, so a host whose distribution ships an older NUT can still run a current one.
 
-- **NUT 2.8.3** from Alpine 3.23. That's the first release that supports EcoFlow's River 3
+- **NUT 2.8.3** from Alpine 3.24. That's the first release that supports EcoFlow's River 3
   Plus and Delta 3 Plus over USB (`usbhid-ups`, USB ID `3746:ffff`).
 - Runs the drivers from `ups.conf` and `upsd`, both as the `nut` user. If any of them exits,
   the container exits, so your restart policy brings the whole set back. A dead driver can't

@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### Fixed
+- The image's `org.opencontainers.image.base.name` label said `alpine:3.23`, and so did the
+  README, Dockerfile comments and CI messages, but since 1.1.1 the image is built on Alpine
+  3.24 (Dependabot moved only the `FROM` line, #4). Anything reading the label, such as an
+  SBOM or provenance tool, was told the wrong base. CI now fails when the `FROM` tag and the
+  label disagree.
+
 ## [1.1.1] - 2026-11-01
 NUT 2.8.3 (Alpine package `nut-2.8.3-r5`), Alpine 3.24. The release that 1.1.0 should have been.
 
