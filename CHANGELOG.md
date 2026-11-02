@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Changed
+- **A driver exiting no longer exits the container** (it used to, by design). If you relied on
+  the container stopping or restarting as your signal that a UPS failed, watch the healthcheck
+  (unhealthy while any UPS reports no status) or the UPS's status from `upsd` instead. Only
+  `upsd` exiting still exits the container (exit 1).
+
 ### Fixed
 - One UPS driver that can't start no longer takes every UPS offline (#11). All drivers ran
   under a single `upsdrvctl -F`, and the container exited when any one of them did. So with
