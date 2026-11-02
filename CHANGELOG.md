@@ -2,14 +2,8 @@
 
 ## [Unreleased]
 
-### Fixed
-- Releases: the release workflow now refuses a tag whose commit has no `## [X.Y.Z] - <date>`
-  heading in `CHANGELOG.md`. `v1.1.0` was tagged on `main` before the promotion PR merged; the
-  "tag is on main" check passed for that old commit, and `:1.1.0` published 1.0.0's code. The
-  new check fails for exactly that case and passes for every real release.
-
-## [1.1.0] - 2026-11-01
-NUT 2.8.3, Alpine 3.23.
+## [1.1.1] - 2026-11-01
+NUT 2.8.3 (Alpine package `nut-2.8.3-r5`), Alpine 3.24. The release that 1.1.0 should have been.
 
 ### Added
 - `NUT_DEVICE_GID`: the numeric ID of the host group that owns the UPS's USB device node. The
@@ -21,6 +15,20 @@ NUT 2.8.3, Alpine 3.23.
   via `initgroups()`). An ID that already exists in the image is reused; a non-numeric value
   exits 64. The smoke test checks the running driver's groups in `/proc`, including after a
   restart.
+
+### Changed
+- Base image Alpine 3.23 → 3.24 (#4). NUT stays at 2.8.3 (package `-r4` → `-r5`), so driver
+  support is unchanged; the smoke test passes on it.
+
+### Fixed
+- Releases: the release workflow now refuses a tag whose commit has no `## [X.Y.Z] - <date>`
+  heading in `CHANGELOG.md`. `v1.1.0` was tagged on `main` before the promotion PR merged; the
+  "tag is on main" check passed for that old commit, and `:1.1.0` published 1.0.0's code. The
+  new check fails for exactly that case and passes for every real release.
+
+## [1.1.0] - 2026-11-01
+**Don't use.** Tagged on `main` before the promotion PR merged, so the image is 1.0.0's code
+rebuilt (NUT 2.8.3, Alpine 3.23) **without `NUT_DEVICE_GID`**. Use 1.1.1.
 
 ## [1.0.0] - 2026-11-01
 NUT 2.8.3, Alpine 3.23.
