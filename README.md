@@ -23,7 +23,8 @@ docker run -d --name nut-upsd \
   -v /etc/nut-upsd:/config:ro \
   -v /dev/bus/usb:/dev/bus/usb \
   --device-cgroup-rule 'c 189:* rmw' \
-  ghcr.io/ggrace519/nut-upsd:1.0.0
+  -e NUT_DEVICE_GID="$(getent group nut-ups | cut -d: -f3)" \
+  ghcr.io/ggrace519/nut-upsd:1.1.0
 ```
 
 - **`/config`** must contain `ups.conf`, `upsd.conf` and `upsd.users`. `nut.conf` and anything
@@ -34,6 +35,17 @@ docker run -d --name nut-upsd \
 - **USB:** bind-mount `/dev/bus/usb` and allow USB character devices (major 189) with the
   cgroup rule. This survives the device re-enumerating after a replug or reboot. `--device`
   only snapshots the device node that exists when the container is created.
+- **USB permissions (`NUT_DEVICE_GID`):** the drivers run as `nut`, and a host device node is
+  `root:root 0664` by default, so they fail with `libusb1: Could not open any HID devices:
+  insufficient permissions on everything`. Give the UPS to a host group with a udev rule, and
+  pass that group's numeric ID:
+  ```
+  # /etc/udev/rules.d/62-nut-upsd.rules (host)
+  SUBSYSTEM=="usb", ATTR{idVendor}=="3746", ATTR{idProduct}=="ffff", MODE="0660", GROUP="nut-ups"
+  ```
+  At start the entrypoint adds `nut` to a group with that ID (reusing one the image already
+  has), and the drivers keep it when they drop privileges. udev applies the rule on every plug,
+  so replugs keep working.
 - **`--network host`:** `upsd` binds on the host itself, so the host firewall decides who can
   reach port 3493. Docker's published ports (`-p`) bypass host firewall rules.
 - **`upsd.conf` must listen on `127.0.0.1`** (or `0.0.0.0`) for the healthcheck to work.
@@ -81,6 +93,8 @@ The smoke test needs no hardware. It uses NUT's `dummy-ups` driver to check:
 - the config copy's permissions, and that `LOGIN` takes the right password and refuses a wrong one;
 - that a dead driver stops the container;
 - a clean `docker stop`;
+- that `NUT_DEVICE_GID` reaches the running drivers' groups, also after a restart, reusing a
+  group ID the image already has, and that a non-numeric value exits 64;
 - refusal to start without config.
 
 CI runs it on every push and PR, along with shellcheck and hadolint.

@@ -21,15 +21,24 @@ chmod 0755 "$CFG"
 
 in_ctr() { docker exec "$NAME" "$@"; }
 
+wait_healthy() {
+  local state
+  for _ in $(seq 1 45); do
+    state=$(docker inspect -f '{{.State.Health.Status}}' "$NAME" 2>/dev/null || echo gone)
+    [ "$state" = healthy ] && return 0
+    [ "$state" = gone ] && fail "container exited during start"
+    sleep 2
+  done
+  fail "not healthy after 90 s (state: $state)"
+}
+
+# Supplementary groups of the running dummy2 driver, as the kernel sees them.
+# shellcheck disable=SC2016 # expands inside the container, not here
+driver_groups() { in_ctr sh -c 'grep "^Groups:" "/proc/$(pgrep -f "^/usr/lib/nut/dummy-ups .*-a dummy2")/status"'; }
+
 echo "== start"
 docker run -d --name "$NAME" -v "$CFG":/config:ro "$IMAGE" >/dev/null
-for _ in $(seq 1 45); do
-  state=$(docker inspect -f '{{.State.Health.Status}}' "$NAME" 2>/dev/null || echo gone)
-  [ "$state" = healthy ] && break
-  [ "$state" = gone ] && fail "container exited during start"
-  sleep 2
-done
-[ "$state" = healthy ] || fail "not healthy after 90 s (state: $state)"
+wait_healthy
 echo "healthy"
 
 echo "== values"
@@ -77,6 +86,33 @@ code=$(docker inspect -f '{{.State.ExitCode}}' "$NAME")
 [ "$code" = 0 ] || fail "exit code $code after docker stop, want 0"
 [ "$took" -lt 8 ] || fail "docker stop took ${took}s (SIGTERM not handled?)"
 echo "stopped in ${took}s, exit 0"
+cleanup
+
+echo "== NUT_DEVICE_GID puts the drivers in the device group, also after a restart"
+docker run -d --name "$NAME" -e NUT_DEVICE_GID=4242 -v "$CFG":/config:ro "$IMAGE" >/dev/null
+wait_healthy
+driver_groups | grep -qw 4242 || fail "driver lacks group 4242: $(driver_groups)"
+docker restart -t 10 "$NAME" >/dev/null
+wait_healthy
+driver_groups | grep -qw 4242 || fail "driver lacks group 4242 after a restart: $(driver_groups)"
+echo "driver has 4242, before and after a restart"
+cleanup
+
+echo "== an ID the image already has is reused, not duplicated"
+docker run -d --name "$NAME" -e NUT_DEVICE_GID=20 -v "$CFG":/config:ro "$IMAGE" >/dev/null
+wait_healthy
+driver_groups | grep -qw 20 || fail "driver lacks group 20: $(driver_groups)"
+in_ctr grep -q '^nut-device:' /etc/group && fail "created nut-device for an existing ID"
+echo "driver has 20 (existing group reused)"
+cleanup
+
+echo "== a non-numeric NUT_DEVICE_GID refuses to start"
+set +e
+docker run --name "$NAME" -e NUT_DEVICE_GID=plugdev -v "$CFG":/config:ro "$IMAGE" >/dev/null 2>&1
+code=$?
+set -e
+[ "$code" = 64 ] || fail "exit code $code for NUT_DEVICE_GID=plugdev, want 64"
+echo "exited 64"
 cleanup
 
 echo "== missing config refuses to start"

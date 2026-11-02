@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+### Added
+- `NUT_DEVICE_GID`: the numeric ID of the host group that owns the UPS's USB device node. The
+  drivers run as `nut`, and a default host node (`root:root 0664`) can't be opened read-write,
+  so a real USB UPS failed with `libusb1: Could not open any HID devices: insufficient
+  permissions on everything` and the container restarted in a loop. With a host udev rule
+  giving the device to a group, and that group's ID in `NUT_DEVICE_GID`, the entrypoint adds
+  `nut` to a matching group before the drivers drop privileges (NUT keeps supplementary groups
+  via `initgroups()`). An ID that already exists in the image is reused; a non-numeric value
+  exits 64. The smoke test checks the running driver's groups in `/proc`, including after a
+  restart.
+
 ## [1.0.0] - 2026-11-01
 NUT 2.8.3, Alpine 3.23.
 
