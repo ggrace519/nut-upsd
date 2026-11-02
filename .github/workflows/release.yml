@@ -29,6 +29,15 @@ jobs:
           git merge-base --is-ancestor "$GITHUB_SHA" origin/main \
             || { echo "::error::$GITHUB_REF_NAME is not on main"; exit 1; }
 
+      # "On main" alone passes for an old main commit: v1.1.0 was tagged on main before the
+      # promotion merged and published 1.0.0's code. The tagged commit must carry its own
+      # release notes, which only a promoted release PR adds.
+      - name: Require a CHANGELOG entry for this version
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          grep -q "^## \[${version//./\\.}\] - " CHANGELOG.md \
+            || { echo "::error::CHANGELOG.md at $GITHUB_SHA has no '## [$version] - <date>' heading. Merge the release PR and the promotion PR, then tag main."; exit 1; }
+
       - name: Build and smoke test
         run: |
           docker build --pull --build-arg VERSION="${GITHUB_REF_NAME#v}" -t nut-upsd:release .

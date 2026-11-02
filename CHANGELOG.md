@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Fixed
+- Releases: the release workflow now refuses a tag whose commit has no `## [X.Y.Z] - <date>`
+  heading in `CHANGELOG.md`. `v1.1.0` was tagged on `main` before the promotion PR merged; the
+  "tag is on main" check passed for that old commit, and `:1.1.0` published 1.0.0's code. The
+  new check fails for exactly that case and passes for every real release.
+
 ## [1.1.0] - 2026-11-01
 NUT 2.8.3, Alpine 3.23.
 
