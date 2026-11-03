@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-11-03
+NUT 2.8.3 (Alpine package `nut-2.8.3-r5`), Alpine 3.24. Minor release: a driver exiting no longer
+exits the container (see Changed).
+
 ### Changed
 - **A driver exiting no longer exits the container** (it used to, by design). If you relied on
   the container stopping or restarting as your signal that a UPS failed, watch the healthcheck
