@@ -2,6 +2,25 @@
 
 ## [Unreleased]
 
+### Changed
+- **A driver exiting no longer exits the container** (it used to, by design). If you relied on
+  the container stopping or restarting as your signal that a UPS failed, watch the healthcheck
+  (unhealthy while any UPS reports no status) or the UPS's status from `upsd` instead. Only
+  `upsd` exiting still exits the container (exit 1).
+
+### Fixed
+- One UPS driver that can't start no longer takes every UPS offline (#11). All drivers ran
+  under a single `upsdrvctl -F`, and the container exited when any one of them did. So with
+  two or more UPSes, a UPS whose device was missing at start (unplugged, or USB passthrough
+  not back after a host reboot) put the container in a restart loop that served none of
+  them. A monitor-only UPS could black out the one a shutdown depends on. Each driver now
+  runs in its own loop and is restarted with backoff (5 s doubling to 60 s, reset after a
+  minute of running). The container exits only when `upsd` does. A down UPS is still visible:
+  `upsd` reports it as not connected or stale, and the healthcheck stays unhealthy until it
+  recovers. A `ups.conf` with no UPS now exits 64 at start, like missing config. The smoke
+  test covers a restarted driver, a driver that can't start (and recovers when its device
+  appears), and `upsd` exiting.
+
 ## [1.1.1] - 2026-11-01
 NUT 2.8.3 (Alpine package `nut-2.8.3-r5`), Alpine 3.24. The release that 1.1.0 should have been.
 
