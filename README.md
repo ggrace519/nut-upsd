@@ -3,11 +3,13 @@
 [Network UPS Tools](https://networkupstools.org/) (the UPS drivers plus `upsd`) in a small
 Alpine image, so a host whose distribution ships an older NUT can still run a current one.
 
-- **NUT 2.8.3** from Alpine 3.23. That's the first release that supports EcoFlow's River 3
+- **NUT 2.8.3** from Alpine 3.24. That's the first release that supports EcoFlow's River 3
   Plus and Delta 3 Plus over USB (`usbhid-ups`, USB ID `3746:ffff`).
-- Runs the drivers from `ups.conf` and `upsd`, both as the `nut` user. If any of them exits,
-  the container exits, so your restart policy brings the whole set back. A dead driver can't
-  hide behind a running `upsd`.
+- Runs the drivers from `ups.conf` and `upsd`, both as the `nut` user. Each driver is restarted
+  on its own when it exits (backoff 5 s doubling to 60 s), so one UPS that's unplugged or
+  failing doesn't take the others offline. If `upsd` exits, the container exits and your
+  restart policy brings it back. A dead driver still can't hide: `upsd` reports its UPS as not
+  connected or stale, and the healthcheck stays unhealthy until it recovers.
 - Has no configuration or secrets of its own. You mount yours.
 - Its healthcheck is healthy only while every UPS in `ups.conf` reports a status.
 
@@ -24,7 +26,7 @@ docker run -d --name nut-upsd \
   -v /dev/bus/usb:/dev/bus/usb \
   --device-cgroup-rule 'c 189:* rmw' \
   -e NUT_DEVICE_GID="$(getent group nut-ups | cut -d: -f3)" \
-  ghcr.io/ggrace519/nut-upsd:1.1.1
+  ghcr.io/ggrace519/nut-upsd:1.2.0
 ```
 
 - **`/config`** must contain `ups.conf`, `upsd.conf` and `upsd.users`. `nut.conf` and anything
@@ -91,10 +93,12 @@ The smoke test needs no hardware. It uses NUT's `dummy-ups` driver to check:
 - start-up with two UPSes and the healthcheck;
 - values served over the NUT protocol;
 - the config copy's permissions, and that `LOGIN` takes the right password and refuses a wrong one;
-- that a dead driver stops the container;
+- that a dead driver is restarted while the other UPS stays served, that a driver that can't
+  start (missing device) leaves the others up and recovers once its device appears, and that
+  `upsd` exiting stops the container (exit 1);
 - a clean `docker stop`;
 - that `NUT_DEVICE_GID` reaches the running drivers' groups, also after a restart, reusing a
   group ID the image already has, and that a non-numeric value exits 64;
-- refusal to start without config.
+- refusal to start without config, or with no UPS in `ups.conf` (exit 64).
 
 CI runs it on every push and PR, along with shellcheck and hadolint.

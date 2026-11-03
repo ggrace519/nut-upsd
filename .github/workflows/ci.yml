@@ -25,6 +25,17 @@ jobs:
           shellcheck entrypoint.sh healthcheck.sh tests/smoke.sh
           docker run --rm -i hadolint/hadolint@sha256:32dac94127fd60b7b7e3fbfc65e1383b9b5e25c9bfd7b8536de7a539fe68a12d < Dockerfile
 
+      # Dependabot bumps the FROM line only; the published base.name label must follow it.
+      - name: Base image label matches FROM
+        run: |
+          from=$(sed -n 's/^FROM alpine:\([0-9.]*\)@.*/\1/p' Dockerfile)
+          label=$(sed -n 's|.*image\.base\.name="docker.io/library/alpine:\([0-9.]*\)".*|\1|p' Dockerfile)
+          if [ -z "$from" ] || [ "$from" != "$label" ]; then
+            echo "::error file=Dockerfile::FROM is alpine:${from:-?} but the base.name label says alpine:${label:-?}"
+            exit 1
+          fi
+          echo "FROM and base.name both alpine:$from"
+
       - name: Build
         run: docker build --pull -t nut-upsd:ci .
 
@@ -32,7 +43,7 @@ jobs:
         run: tests/smoke.sh nut-upsd:ci
 
   # Dependabot only moves the Alpine base digest, which changes on Alpine point releases. A
-  # nut/libusb security fix inside the 3.23 branch in between needs a patch release: this job
+  # nut/libusb security fix inside the Alpine branch in between needs a patch release: this job
   # fails (and GitHub notifies) when the published image has outdated packages.
   outdated:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
@@ -47,4 +58,4 @@ jobs:
             echo "$outdated"
             exit 1
           fi
-          echo "latest is up to date with Alpine 3.23"
+          echo "latest is up to date with its Alpine branch"
