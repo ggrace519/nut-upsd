@@ -1,7 +1,8 @@
 #!/bin/sh
 # Start every UPS driver in ups.conf and upsd, both in the foreground, as the nut user.
-# If any of them exits, stop the rest and exit non-zero so the container restart policy
-# brings the whole bundle back (upsdrvctl -F already stops all drivers when one dies).
+# Each driver is restarted on its own when it exits, so one failing UPS doesn't take the
+# others offline. If upsd exits, stop everything and exit non-zero so the container restart
+# policy brings it back.
 set -eu
 
 CONFIG_SRC="${NUT_CONFIG_SRC:-/config}"
@@ -41,22 +42,59 @@ if [ -n "${NUT_DEVICE_GID:-}" ]; then
   id -nG nut | tr " " "\n" | grep -qx "$group" || addgroup nut "$group"
 fi
 
-upsdrvctl -u nut -F start &
-drivers=$!
+ups_list=$(sed -n 's/^[[:space:]]*\[\([^]]*\)\][[:space:]]*$/\1/p' "$NUT_ETC/ups.conf")
+[ -n "$ups_list" ] || { log "no UPS defined in $CONFIG_SRC/ups.conf"; exit 64; }
+
+# Run one UPS's driver in the foreground and restart it whenever it exits, with backoff
+# (RETRY_MIN doubling to RETRY_MAX; reset after a run of RETRY_MAX or longer). Each UPS has its
+# own loop, so a driver that can't start (device unplugged, passthrough missing) doesn't take
+# the other UPSes down. While it's down, upsd reports that UPS as not connected or stale, and
+# the healthcheck stays unhealthy.
+RETRY_MIN=5
+RETRY_MAX=60
+supervise() {
+  ups=$1
+  delay=$RETRY_MIN
+  child=
+  trap 'kill "$child" 2>/dev/null; exit 0' TERM INT
+  while :; do
+    started=$(date +%s)
+    upsdrvctl -u nut -F start "$ups" &
+    child=$!
+    rc=0
+    wait "$child" || rc=$?
+    [ $(( $(date +%s) - started )) -ge "$RETRY_MAX" ] && delay=$RETRY_MIN
+    log "driver for $ups exited ($rc); restarting in ${delay}s"
+    sleep "$delay" &
+    child=$!
+    wait "$child" || true
+    delay=$(( delay * 2 ))
+    [ "$delay" -le "$RETRY_MAX" ] || delay=$RETRY_MAX
+  done
+}
+
+supervisors=
+for ups in $ups_list; do
+  supervise "$ups" &
+  supervisors="$supervisors $!"
+done
 upsd -u nut -F &
 upsd=$!
 
 stop() {
-  kill "$drivers" "$upsd" 2>/dev/null || true
+  # shellcheck disable=SC2086 # word-split the PID list
+  kill $supervisors "$upsd" 2>/dev/null || true
   wait 2>/dev/null || true
 }
 trap 'stop; exit 0' TERM INT
 
-# BusyBox `wait -n` doesn't report which child exited, so poll.
-while kill -0 "$drivers" 2>/dev/null && kill -0 "$upsd" 2>/dev/null; do
+# upsd is the one process every UPS depends on: if it exits, so does the container, and the
+# restart policy brings everything back. BusyBox `wait -n` doesn't report which child exited,
+# so poll.
+while kill -0 "$upsd" 2>/dev/null; do
   sleep 2
 done
 
-if kill -0 "$drivers" 2>/dev/null; then log "upsd exited"; else log "a UPS driver exited"; fi
+log "upsd exited"
 stop
 exit 1
