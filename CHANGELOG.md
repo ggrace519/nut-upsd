@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+## [1.2.1] - 2026-11-08
+NUT 2.8.3 (Alpine package `nut-2.8.3-r5`), Alpine 3.24. Same image sources as 1.2.0; the first release
+tagged and published by the new release workflow.
+
+### Changed
+- **Releases are automated.** Merging the promotion PR into `main` tags `vX.Y.Z` and publishes
+  the GitHub release from the top dated section of this changelog (the shared `ggrace519/.github`
+  release workflow), then builds, smoke-tests and pushes the image to GHCR. Tags are no longer
+  pushed by hand. On the promotion PR the same workflow runs as a dry run, so a promotion whose
+  `[Unreleased]` entries are not rolled into a new version fails before it can merge.
+- The promotion workflow is pinned to `ggrace519/.github` v1.1.0.
+
 ## [1.2.0] - 2026-11-03
 NUT 2.8.3 (Alpine package `nut-2.8.3-r5`), Alpine 3.24. Minor release: a driver exiting no longer
 exits the container (see Changed).

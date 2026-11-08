@@ -1,46 +1,58 @@
-# Publish ghcr.io/ggrace519/nut-upsd:<version> (and :latest) for a vX.Y.Z tag on main.
-# The image is built and smoke-tested again here before anything is pushed.
+# Release on every push to main: tag vX.Y.Z and publish the GitHub release from the top
+# `## [X.Y.Z] - YYYY-MM-DD` section of CHANGELOG.md (shared ggrace519/.github workflow), then
+# build, smoke-test and push ghcr.io/ggrace519/nut-upsd:<version> (and :latest).
+# On the promotion pull request the release job is a dry run, so a promotion whose
+# [Unreleased] entries are not rolled into a new version fails before it can merge.
+#
+# The image job is chained with `needs:` rather than `on: push: tags`, because a tag made with
+# GITHUB_TOKEN starts no other workflow. If the image push fails after the tag exists, use
+# "Re-run failed jobs": the release job's outputs are kept, so the image job runs again.
 name: release
 
 on:
   push:
-    tags: ["v[0-9]+.[0-9]+.[0-9]+"]
+    branches: [main]
+  pull_request:
+    branches: [main]
 
 permissions:
   contents: read
-  packages: write
-  attestations: write
-  id-token: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
 
 env:
   IMAGE: ghcr.io/ggrace519/nut-upsd
 
 jobs:
   release:
+    permissions:
+      contents: write
+    uses: ggrace519/.github/.github/workflows/release.yml@a97e5ec9598944c5238ee490e5eb1fea7a3770bd # v1.1.0
+    with:
+      dry-run: ${{ github.event_name == 'pull_request' }}
+
+  image:
+    needs: release
+    if: github.event_name == 'push' && needs.release.outputs.released == 'true'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      attestations: write
+      id-token: write
+    env:
+      VERSION: ${{ needs.release.outputs.version }}
+      TAG: ${{ needs.release.outputs.tag }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          fetch-depth: 0
-
-      - name: Require the tag to be on main
-        run: |
-          git fetch origin main
-          git merge-base --is-ancestor "$GITHUB_SHA" origin/main \
-            || { echo "::error::$GITHUB_REF_NAME is not on main"; exit 1; }
-
-      # "On main" alone passes for an old main commit: v1.1.0 was tagged on main before the
-      # promotion merged and published 1.0.0's code. The tagged commit must carry its own
-      # release notes, which only a promoted release PR adds.
-      - name: Require a CHANGELOG entry for this version
-        run: |
-          version="${GITHUB_REF_NAME#v}"
-          grep -q "^## \[${version//./\\.}\] - " CHANGELOG.md \
-            || { echo "::error::CHANGELOG.md at $GITHUB_SHA has no '## [$version] - <date>' heading. Merge the release PR and the promotion PR, then tag main."; exit 1; }
+          ref: ${{ github.sha }}
 
       - name: Build and smoke test
         run: |
-          docker build --pull --build-arg VERSION="${GITHUB_REF_NAME#v}" -t nut-upsd:release .
+          docker build --pull --build-arg VERSION="$VERSION" -t nut-upsd:release .
           tests/smoke.sh nut-upsd:release
 
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
@@ -51,13 +63,16 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # The run is a branch push, not a tag push, so the semver tag takes its value explicitly.
       - id: meta
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:
           images: ${{ env.IMAGE }}
           tags: |
-            type=semver,pattern={{version}}
+            type=semver,pattern={{version}},value=${{ env.TAG }}
             type=raw,value=latest
+          flavor: |
+            latest=false
 
       - name: Push
         id: push
@@ -66,18 +81,21 @@ jobs:
           context: .
           push: true
           pull: true
-          build-args: VERSION=${{ steps.meta.outputs.version }}
+          build-args: VERSION=${{ env.VERSION }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           provenance: mode=max
           sbom: true
 
       - name: Summary
+        env:
+          TAGS: ${{ steps.meta.outputs.tags }}
+          DIGEST: ${{ steps.push.outputs.digest }}
         run: |
           {
             echo "### Published"
             echo '```'
-            echo "${{ steps.meta.outputs.tags }}"
-            echo "digest: ${{ steps.push.outputs.digest }}"
+            echo "$TAGS"
+            echo "digest: $DIGEST"
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"

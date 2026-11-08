@@ -7,11 +7,12 @@ Network UPS Tools (drivers + upsd) in an Alpine image, published to GHCR. See RE
   only receives promotion PRs from `develop` (opened by `.github/workflows/promote.yml`), merged
   as a merge commit or fast-forward, never squashed.
 - Branch from `develop` as `<type>/<kebab-summary>`. Never commit to `main` or `develop`.
-- Release, in this order: a release PR to `develop` rolls `[Unreleased]` into a
-  `## [X.Y.Z] - YYYY-MM-DD` heading (state the NUT and Alpine versions); the promotion PR
-  merges into `main`; **then** tag `vX.Y.Z` on `main`. `release.yml` refuses a tag whose commit
-  lacks that heading (v1.1.0 was tagged before the promotion and shipped 1.0.0's code), then
-  rebuilds, smoke-tests and pushes to GHCR.
+- Release: a release PR to `develop` rolls `[Unreleased]` into a `## [X.Y.Z] - YYYY-MM-DD`
+  heading (state the NUT and Alpine versions); merging the promotion PR into `main` releases it.
+  `release.yml` (the shared `ggrace519/.github` release workflow) tags `vX.Y.Z` and publishes the
+  GitHub release from that section, then rebuilds, smoke-tests and pushes the image to GHCR. On
+  the promotion PR it is a dry run that fails while `[Unreleased]` has entries or the top
+  version is already tagged. Never tag by hand.
 
 ## Checks (CI runs these; run them before pushing)
 - `docker build -t nut-upsd:test . && tests/smoke.sh nut-upsd:test` must print `PASS`.

@@ -54,7 +54,7 @@ jobs:
           outdated=$(docker run --rm --entrypoint sh ghcr.io/ggrace519/nut-upsd:latest \
             -c 'apk update -q >/dev/null && apk version -l "<" | tail -n +2')
           if [ -n "$outdated" ]; then
-            echo "::error::ghcr.io/ggrace519/nut-upsd:latest has outdated packages; tag a patch release"
+            echo "::error::ghcr.io/ggrace519/nut-upsd:latest has outdated packages; cut a patch release in CHANGELOG.md"
             echo "$outdated"
             exit 1
           fi
