@@ -75,8 +75,9 @@ Check it: `docker exec nut-upsd upsc myups@127.0.0.1`.
 
 ## Images and updates
 
-- `ghcr.io/ggrace519/nut-upsd:<version>` and `:latest` are published for each `vX.Y.Z` tag on
-  `main`, with provenance and SBOM attestations. The image version is independent of the NUT
+- `ghcr.io/ggrace519/nut-upsd:<version>` and `:latest` are published for each release, with
+  provenance and SBOM attestations. A release is tagged `vX.Y.Z` on `main` from the top version
+  in `CHANGELOG.md` when the promotion merges. The image version is independent of the NUT
   version: the release notes in `CHANGELOG.md` give the NUT version.
 - The Alpine base is pinned by digest. Dependabot opens a PR when Alpine moves.
 - A weekly CI job checks whether `:latest` has outdated Alpine packages (security fixes
