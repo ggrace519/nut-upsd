@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-11-12
+NUT 2.8.3 (Alpine package `nut-2.8.3-r5`), Alpine 3.24. Minor release: the image is published
+for linux/arm64 as well as linux/amd64; the image contents are unchanged.
+
 ### Added
 - **arm64 images.** Each release is now one multi-platform image for `linux/amd64` and
   `linux/arm64`, so the same tag and digest run on 64-bit Raspberry Pi OS and other arm64
