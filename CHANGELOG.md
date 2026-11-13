@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### Added
+- **arm64 images.** Each release is now one multi-platform image for `linux/amd64` and
+  `linux/arm64`, so the same tag and digest run on 64-bit Raspberry Pi OS and other arm64
+  hosts; Docker pulls the matching platform. Until now only amd64 was published, so an arm64
+  host couldn't run the image at all. CI builds and runs the smoke test on a native arm64
+  runner as well as amd64, and the release builds arm64 under QEMU from the same sources.
+  Nothing changes for amd64 hosts except the digest, which now names the multi-platform index.
+
 ## [1.2.1] - 2026-11-08
 NUT 2.8.3 (Alpine package `nut-2.8.3-r5`), Alpine 3.24. Same image sources as 1.2.0; the first release
 tagged and published by the new release workflow.
