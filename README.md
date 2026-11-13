@@ -75,8 +75,12 @@ Check it: `docker exec nut-upsd upsc myups@127.0.0.1`.
 
 ## Images and updates
 
-- `ghcr.io/ggrace519/nut-upsd:<version>` and `:latest` are published for each `vX.Y.Z` tag on
-  `main`, with provenance and SBOM attestations. The image version is independent of the NUT
+- `ghcr.io/ggrace519/nut-upsd:<version>` and `:latest` are published for each release, with
+  provenance and SBOM attestations, as one multi-platform image for `linux/amd64` and
+  `linux/arm64` (64-bit Raspberry Pi OS and other arm64 hosts). Docker pulls the right one.
+  CI builds and smoke-tests both platforms on native runners; the release builds arm64 under
+  QEMU from the same sources. A release is tagged `vX.Y.Z` on `main` from the top version
+  in `CHANGELOG.md` when the promotion merges. The image version is independent of the NUT
   version: the release notes in `CHANGELOG.md` give the NUT version.
 - The Alpine base is pinned by digest. Dependabot opens a PR when Alpine moves.
 - A weekly CI job checks whether `:latest` has outdated Alpine packages (security fixes

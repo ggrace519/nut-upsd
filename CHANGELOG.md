@@ -2,6 +2,30 @@
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-11-12
+NUT 2.8.3 (Alpine package `nut-2.8.3-r5`), Alpine 3.24. Minor release: the image is published
+for linux/arm64 as well as linux/amd64; the image contents are unchanged.
+
+### Added
+- **arm64 images.** Each release is now one multi-platform image for `linux/amd64` and
+  `linux/arm64`, so the same tag and digest run on 64-bit Raspberry Pi OS and other arm64
+  hosts; Docker pulls the matching platform. Until now only amd64 was published, so an arm64
+  host couldn't run the image at all. CI builds and runs the smoke test on a native arm64
+  runner as well as amd64, and the release builds arm64 under QEMU from the same sources.
+  Nothing changes for amd64 hosts except the digest, which now names the multi-platform index.
+
+## [1.2.1] - 2026-11-08
+NUT 2.8.3 (Alpine package `nut-2.8.3-r5`), Alpine 3.24. Same image sources as 1.2.0; the first release
+tagged and published by the new release workflow.
+
+### Changed
+- **Releases are automated.** Merging the promotion PR into `main` tags `vX.Y.Z` and publishes
+  the GitHub release from the top dated section of this changelog (the shared `ggrace519/.github`
+  release workflow), then builds, smoke-tests and pushes the image to GHCR. Tags are no longer
+  pushed by hand. On the promotion PR the same workflow runs as a dry run, so a promotion whose
+  `[Unreleased]` entries are not rolled into a new version fails before it can merge.
+- The promotion workflow is pinned to `ggrace519/.github` v1.1.0.
+
 ## [1.2.0] - 2026-11-03
 NUT 2.8.3 (Alpine package `nut-2.8.3-r5`), Alpine 3.24. Minor release: a driver exiting no longer
 exits the container (see Changed).
