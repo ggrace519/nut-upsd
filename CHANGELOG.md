@@ -21,8 +21,9 @@ for linux/arm64 as well as linux/amd64; the image contents are unchanged.
   Nothing changes for amd64 hosts except the digest, which now names the multi-platform index.
 
 ## [1.2.1] - 2026-11-08
-NUT 2.8.3 (Alpine package `nut-2.8.3-r5`), Alpine 3.24. Same image sources as 1.2.0; the first release
-tagged and published by the new release workflow.
+NUT 2.8.3 (Alpine package `nut-2.8.3-r5`), Alpine 3.24. Same image sources as 1.2.0. **Never
+released:** it reached `main` in the same promotion as 1.3.0, which the release workflow tagged
+and published instead, so there is no `v1.2.1` tag, GitHub release or image.
 
 ### Changed
 - **Releases are automated.** Merging the promotion PR into `main` tags `vX.Y.Z` and publishes
