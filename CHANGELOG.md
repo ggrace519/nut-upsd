@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+NUT 2.8.3 (Alpine package `nut-2.8.3-r5`), Alpine 3.24. Patch release: the changelog now rolls
+itself before each promotion; the image sources are unchanged.
+
 ### Changed
 - Releases no longer need a hand-written version heading. After CI passes on `develop`, the promotion workflow rolls `[Unreleased]` into the next version and commits it to `develop` (the shared `ggrace519/.github` `version` workflow, v1.2.0), so the promotion pull request is ready to release when it opens. The image and its contents are unchanged.
 
