@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Changed
+- Releases no longer need a hand-written version heading. After CI passes on `develop`, the promotion workflow rolls `[Unreleased]` into the next version and commits it to `develop` (the shared `ggrace519/.github` `version` workflow, v1.2.0), so the promotion pull request is ready to release when it opens. The image and its contents are unchanged.
+
 ## [1.3.0] - 2026-11-12
 NUT 2.8.3 (Alpine package `nut-2.8.3-r5`), Alpine 3.24. Minor release: the image is published
 for linux/arm64 as well as linux/amd64; the image contents are unchanged.

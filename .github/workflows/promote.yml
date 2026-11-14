@@ -5,9 +5,8 @@ on:
     types: [completed]
     branches: [develop]
   workflow_dispatch:
-permissions:
-  contents: read
-  pull-requests: write
+# Each job is granted only what it uses: version commits the changelog roll-up, promote opens the PR.
+permissions: {}
 # Only push-triggered and manual runs share the group. A develop merge also re-runs CI on the
 # open promotion PR; that run's promote job is skipped by `if`, but concurrency applies before
 # `if`, so in a shared group it would cancel the push run that does the work (#17).
@@ -17,12 +16,25 @@ concurrency:
         && 'promote-develop-to-main' || format('promote-skip-{0}', github.run_id) }}
   cancel-in-progress: true
 jobs:
-  promote:
+  # Rolls [Unreleased] into the next version and commits it to develop, so the promotion
+  # pull request already carries the changelog that release.yml tags on the merge.
+  version:
     if: >-
       github.event_name == 'workflow_dispatch' ||
       (github.event.workflow_run.conclusion == 'success' &&
        github.event.workflow_run.event == 'push')
-    uses: ggrace519/.github/.github/workflows/promote.yml@a97e5ec9598944c5238ee490e5eb1fea7a3770bd # v1.1.0
+    permissions:
+      contents: write
+    uses: ggrace519/.github/.github/workflows/version.yml@0e67344dbe377d259b4973d7546a08da0864c620 # v1.2.0
     with:
       ref: ${{ github.event.workflow_run.head_sha }}
+
+  promote:
+    needs: version
+    permissions:
+      contents: read
+      pull-requests: write
+    uses: ggrace519/.github/.github/workflows/promote.yml@0e67344dbe377d259b4973d7546a08da0864c620 # v1.2.0
+    with:
+      ref: ${{ needs.version.outputs.sha }}
       merge-note: "Merging to main tags vX.Y.Z from the top CHANGELOG.md version and publishes the image to GHCR."
