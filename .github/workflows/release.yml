@@ -30,7 +30,7 @@ jobs:
   release:
     permissions:
       contents: write
-    uses: ggrace519/.github/.github/workflows/release.yml@a97e5ec9598944c5238ee490e5eb1fea7a3770bd # v1.1.0
+    uses: ggrace519/.github/.github/workflows/release.yml@0e67344dbe377d259b4973d7546a08da0864c620 # v1.2.0
     with:
       dry-run: ${{ github.event_name == 'pull_request' }}
 
