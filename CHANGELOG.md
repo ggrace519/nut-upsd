@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [1.3.1] - 2026-11-14
+
 NUT 2.8.3 (Alpine package `nut-2.8.3-r5`), Alpine 3.24. Patch release: the changelog now rolls
 itself before each promotion; the image sources are unchanged.
 
