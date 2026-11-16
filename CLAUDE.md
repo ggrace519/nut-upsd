@@ -10,15 +10,18 @@ Network UPS Tools (drivers + upsd) in an Alpine image, published to GHCR. See RE
 - Release: PRs add entries under `[Unreleased]` only; never write a version heading by hand.
   After CI passes on a develop push, `promote.yml` first runs the shared `version` workflow: it
   rolls `[Unreleased]` into the next `## [X.Y.Z] - YYYY-MM-DD` section (`### Added` is a minor
-  bump, an entry starting `BREAKING` a major one, anything else a patch) and commits that to
-  `develop` as `github-actions[bot]`; then it opens or refreshes the promotion PR. Pull `develop`
-  after a merge before branching again. The NUT and Alpine versions line goes first under
+  bump, an entry starting `BREAKING` a major one, anything else a patch) on the workflow-owned
+  `chore/roll-changelog` branch and opens or updates a `chore(release): roll changelog into
+  X.Y.Z` PR into `develop` (never push to that branch). Merging it is the decision to release:
+  the run that merge starts has nothing left to roll, so it opens or refreshes the promotion
+  PR. Pull `develop` after a merge before branching again. The NUT and Alpine versions line goes first under
   `[Unreleased]`, before any `###` category, so the roll carries it to the top of the section.
   Merging the promotion PR into `main` releases it: `release.yml` (the shared `ggrace519/.github`
   release workflow) tags `vX.Y.Z` and publishes the GitHub release from that section, then
   rebuilds, smoke-tests and pushes the image to GHCR. On the promotion PR it is a dry run that
-  fails while `[Unreleased]` has entries or the top version is already tagged. The roll-up
-  commit leaves the promotion PR's checks waiting for "Approve and run". Never tag by hand.
+  fails while `[Unreleased]` has entries or the top version is already tagged. Both bot PRs are
+  opened as the GitHub App in the `RELEASE_APP_CLIENT_ID` variable and `RELEASE_APP_PRIVATE_KEY`
+  secret, so their checks run on their own. Never tag by hand.
 
 ## Checks (CI runs these; run them before pushing)
 - `docker build -t nut-upsd:test . && tests/smoke.sh nut-upsd:test` must print `PASS`.
