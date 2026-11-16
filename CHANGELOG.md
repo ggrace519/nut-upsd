@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+NUT 2.8.3 (Alpine package `nut-2.8.3-r5`), Alpine 3.24. Patch release: the changelog roll-up
+now arrives as a pull request; the image sources are unchanged.
+
+### Changed
+- The changelog roll-up is a pull request now, not a commit pushed straight to `develop` (the shared `ggrace519/.github` workflows, v2.0.0). After CI passes on `develop`, a `chore(release): roll changelog into X.Y.Z` pull request opens; merging it is the decision to release, and the promotion pull request opens once it is merged. Both pull requests are opened by a GitHub App, so their checks run without an "Approve and run" click. The image and its contents are unchanged.
+
 ## [1.3.1] - 2026-11-14
 
 NUT 2.8.3 (Alpine package `nut-2.8.3-r5`), Alpine 3.24. Patch release: the changelog now rolls
